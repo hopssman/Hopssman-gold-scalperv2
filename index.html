@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090b10">
+<title>HOPSSMAN AI GOLD SCALPER</title>
+<style>
+:root{color-scheme:dark;--bg:#090b10;--panel:#131722;--line:#252c3a;--muted:#9aa4b2;--gold:#e7b94f;--green:#28c58b;--red:#ff647c}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0%,#25200f 0,transparent 32%),var(--bg);color:#f5f6f8;font:15px system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:900px;margin:auto;padding:22px 15px 45px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.brand{font-weight:900;letter-spacing:1.5px;font-size:20px}.brand span{color:var(--gold)}.sub,.muted{color:var(--muted);font-size:12px}
+.pill{border:1px solid #66552b;color:var(--gold);border-radius:30px;padding:6px 10px;font-size:11px}
+.hero{margin:22px 0 16px;padding:22px;border:1px solid #5a4924;border-radius:18px;background:linear-gradient(125deg,#211b0e,#11151e 65%);overflow:hidden}
+h1{font-size:clamp(25px,6vw,38px);line-height:1.08;margin:8px 0}.gold{color:var(--gold)}.hero p{color:#c0c5ce;max-width:570px;line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:16px;margin-bottom:12px}
+.label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}.value{font-size:20px;font-weight:750;margin-top:5px}
+.signal{font-size:30px;font-weight:900;margin:8px 0}.signal.buy{color:var(--green)}.signal.sell{color:var(--red)}.signal.wait{color:var(--gold)}
+button,.upload{display:inline-flex;align-items:center;justify-content:center;background:var(--gold);color:#17130a;border:0;border-radius:10px;padding:12px 15px;font-weight:800;font-size:14px;cursor:pointer}
+button.secondary{background:#252c3a;color:#f5f6f8;border:1px solid #394253}
+input[type=file]{display:none}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}td{padding:9px 3px;border-bottom:1px solid var(--line)}td:last-child{text-align:right;font-weight:700}
+.note{font-size:12px;color:var(--muted);line-height:1.55}.warn{border-left:3px solid var(--gold);padding:10px 12px;background:#211c10;border-radius:7px;color:#e8d9b5;font-size:12px;line-height:1.5}
+footer{text-align:center;color:#697383;font-size:11px;margin-top:18px}
+@media(min-width:650px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<main>
+  <div class="top"><div><div class="brand">HOPSSMAN <span>AI</span></div><div class="sub">GOLD SCALPER · MOBILE PROTOTYPE</div></div><div class="pill">V1 · OFFLINE ANALYSER</div></div>
+  <section class="hero">
+    <div class="label gold">XAUUSD · GOLD</div>
+    <h1>Trade with a <span class="gold">plan.</span></h1>
+    <p>Import candle data from a chart export. This prototype checks EMA 9/21, RSI 14 and ATR 14 to produce a rule-based setup for review.</p>
+    <div class="actions">
+      <label class="upload" for="csv">Upload candle CSV</label><input id="csv" type="file" accept=".csv,text/csv">
+      <button class="secondary" id="sample">Load sample data</button>
+    </div>
+    <div class="note" style="margin-top:10px">Expected CSV columns: time, open, high, low, close. Header names are case-insensitive.</div>
+  </section>
+  <section class="grid">
+    <div class="card"><div class="label">Signal</div><div id="signal" class="signal wait">NO DATA</div><div id="reason" class="muted">Upload candles to analyse</div></div>
+    <div class="card"><div class="label">Last close</div><div id="price" class="value">—</div><div class="muted">From uploaded file</div></div>
+    <div class="card"><div class="label">EMA 9</div><div id="ema9" class="value">—</div><div class="muted">Short trend</div></div>
+    <div class="card"><div class="label">EMA 21</div><div id="ema21" class="value">—</div><div class="muted">Longer trend</div></div>
+  </section>
+  <section class="card">
+    <div class="label">Analysis details</div>
+    <table>
+      <tr><td>RSI (14)</td><td id="rsi">—</td></tr>
+      <tr><td>ATR (14)</td><td id="atr">—</td></tr>
+      <tr><td>Suggested entry reference</td><td id="entry">—</td></tr>
+      <tr><td>Illustrative stop loss</td><td id="sl">—</td></tr>
+      <tr><td>Illustrative take profit (1.5R)</td><td id="tp">—</td></tr>
+      <tr><td>Data rows loaded</td><td id="rows">0</td></tr>
+    </table>
+  </section>
+  <div class="warn"><b>Important:</b> This is not connected to live prices, an AI model, a broker or MT5. Signals are educational rule-based estimates, not guaranteed predictions. It cannot open trades. Test on historical data and demo only; gold can move sharply and losses are possible.</div>
+  <footer>HOPSSMAN AI · Built as a free Android-friendly first prototype</footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let candles=[];
+function num(v){const n=Number(String(v??'').replace(/,/g,''));return Number.isFinite(n)?n:null}
+function ema(values,period){if(values.length<period)return null;let e=values.slice(0,period).reduce((a,b)=>a+b,0)/period;const k=2/(period+1);for(let i=period;i<values.length;i++)e=values[i]*k+e*(1-k);return e}
+function rsi(values,p=14){if(values.length<=p)return null;let gains=0,losses=0;for(let i=1;i<=p;i++){let d=values[i]-values[i-1];if(d>0)gains+=d;else losses-=d}let ag=gains/p,al=losses/p;for(let i=p+1;i<values.length;i++){let d=values[i]-values[i-1];ag=(ag*(p-1)+Math.max(d,0))/p;al=(al*(p-1)+Math.max(-d,0))/p}return al===0?100:100-100/(1+ag/al)}
+function atr(data,p=14){if(data.length<=p)return null;let trs=[];for(let i=1;i<data.length;i++){let c=data[i],prev=data[i-1];trs.push(Math.max(c.high-c.low,Math.abs(c.high-prev.close),Math.abs(c.low-prev.close)))}return trs.slice(-p).reduce((a,b)=>a+b,0)/p}
+function fmt(v){return v==null?'—':v.toFixed(2)}
+function analyse(){
+ const closes=candles.map(c=>c.close), last=closes.at(-1), e9=ema(closes,9),e21=ema(closes,21),rv=rsi(closes),av=atr(candles);
+ $('price').textContent=fmt(last);$('ema9').textContent=fmt(e9);$('ema21').textContent=fmt(e21);$('rsi').textContent=fmt(rv);$('atr').textContent=fmt(av);$('rows').textContent=candles.length;
+ let dir='WAIT',why='Conditions are not aligned.';
+ if(e9!=null&&e21!=null&&rv!=null&&av!=null){
+   if(e9>e21&&last>e9&&rv>=50&&rv<=70){dir='BUY';why='Uptrend + price above EMA 9 + RSI momentum.'}
+   else if(e9<e21&&last<e9&&rv>=30&&rv<=50){dir='SELL';why='Downtrend + price below EMA 9 + RSI momentum.'}
+   else {why='No clear confluence. Avoid forcing a trade.'}
+ }
+ const el=$('signal');el.textContent=dir;el.className='signal '+(dir==='BUY'?'buy':dir==='SELL'?'sell':'wait');$('reason').textContent=why;
+ $('entry').textContent=fmt(last);
+ $('sl').textContent=av==null?'Need at least 15 candles':fmt(dir==='SELL'?last+1.5*av:last-1.5*av);
+ $('tp').textContent=av==null?'Need at least 15 candles':fmt(dir==='SELL'?last-2.25*av:last+2.25*av);
+}
+function parseCSV(text){
+ const lines=text.trim().split(/\r?\n/).filter(Boolean);if(lines.length<3)throw Error('CSV needs a header and at least 2 data rows.');
+ const delim=lines[0].includes(';')?';':',';const headers=lines[0].split(delim).map(s=>s.trim().toLowerCase());
+ const idx=k=>headers.indexOf(k);for(const k of ['open','high','low','close'])if(idx(k)<0)throw Error('Missing required column: '+k);
+ return lines.slice(1).map(line=>{const a=line.split(delim);return {time:a[idx('time')]||'',open:num(a[idx('open')]),high:num(a[idx('high')]),low:num(a[idx('low')]),close:num(a[idx('close')])}}).filter(c=>[c.open,c.high,c.low,c.close].every(v=>v!==null)&&c.high>=c.low);
+}
+$('csv').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{candles=parseCSV(await f.text());analyse()}catch(err){alert(err.message)}});
+$('sample').addEventListener('click',()=>{candles=[];let p=2650;for(let i=0;i<80;i++){let o=p;p+=Math.sin(i/5)*1.2+(i>45?.35:-.05);let c=p; candles.push({time:i,open:o,high:Math.max(o,c)+.8,low:Math.min(o,c)-.8,close:c})}analyse();});
+</script>
+</body></html>
