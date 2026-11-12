@@ -143,7 +143,72 @@ updateLiveGold();
 setInterval(updateLiveGold, 60000);
   
 function parseCSV(text){
+
 let goldHistory = [];
+
+async function loadGoldHistory(){
+  const status = $('chartStatus');
+  const canvas = $('goldChart');
+
+  status.textContent = 'Connecting to gold market...';
+
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(),15000);
+
+  try {
+    const response = await fetch(
+      'https://xaus.com/api/v1/intraday?symbol=xau&hours=24',
+      {
+        cache:'no-store',
+        signal:controller.signal
+      }
+    );
+
+    if(!response.ok)
+      throw Error('API error: ' + response.status);
+
+    const data = await response.json();
+
+    if(!Array.isArray(data.points))
+      throw Error('API returned no price history');
+
+    goldHistory = data.points
+      .map(p=>({t:Number(p.t),p:Number(p.p)}))
+      .filter(p=>Number.isFinite(p.t) &&
+                 Number.isFinite(p.p) &&
+                 p.p > 0)
+      .sort((a,b)=>a.t-b.t);
+
+    if(goldHistory.length < 25)
+      throw Error('Not enough valid price points');
+
+    drawGoldChart();
+
+    status.textContent =
+      '● ' + goldHistory.length +
+      ' real gold prices · 5-minute intervals · ' +
+      (data.data_state?.status || 'Status unknown');
+
+    status.style.color =
+      data.data_state?.status === 'fresh'
+      ? 'var(--green)' : 'var(--gold)';
+
+  } catch(error) {
+    status.textContent =
+      error.name === 'AbortError'
+      ? 'Connection timed out. Tap Refresh chart.'
+      : 'Chart error: ' + error.message;
+
+    status.style.color = 'var(--red)';
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+  
 
 async function loadGoldHistory(){
   const status = $('chartStatus');
