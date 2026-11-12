@@ -22,7 +22,10 @@ input[type=file]{display:none}.actions{display:flex;gap:9px;flex-wrap:wrap;margi
 table{width:100%;border-collapse:collapse;font-size:13px}td{padding:9px 3px;border-bottom:1px solid var(--line)}td:last-child{text-align:right;font-weight:700}
 .note{font-size:12px;color:var(--muted);line-height:1.55}.warn{border-left:3px solid var(--gold);padding:10px 12px;background:#211c10;border-radius:7px;color:#e8d9b5;font-size:12px;line-height:1.5}
 footer{text-align:center;color:#697383;font-size:11px;margin-top:18px}
-@media(min-width:650px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+.live-price{color:var(--green);font-size:25px;font-weight:900;margin-top:7px}
+.live-status{font-size:11px;color:var(--muted);margin-top:5px}
+  @media(min-width:650px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -39,6 +42,12 @@ footer{text-align:center;color:#697383;font-size:11px;margin-top:18px}
     <div class="note" style="margin-top:10px">Expected CSV columns: time, open, high, low, close. Header names are case-insensitive.</div>
   </section>
   <section class="grid">
+   
+<div class="card">
+  <div class="label">Live Gold Spot · USD/oz</div>
+  <div id="livePrice" class="live-price">Connecting...</div>
+  <div id="liveStatus" class="live-status">Checking market feed...</div>
+</div>
     <div class="card"><div class="label">Signal</div><div id="signal" class="signal wait">NO DATA</div><div id="reason" class="muted">Upload candles to analyse</div></div>
     <div class="card"><div class="label">Last close</div><div id="price" class="value">—</div><div class="muted">From uploaded file</div></div>
     <div class="card"><div class="label">EMA 9</div><div id="ema9" class="value">—</div><div class="muted">Short trend</div></div>
@@ -80,6 +89,50 @@ function analyse(){
  $('sl').textContent=av==null?'Need at least 15 candles':fmt(dir==='SELL'?last+1.5*av:last-1.5*av);
  $('tp').textContent=av==null?'Need at least 15 candles':fmt(dir==='SELL'?last-2.25*av:last+2.25*av);
 }
+async function updateLiveGold(){
+  const priceEl = $('livePrice');
+  const statusEl = $('liveStatus');
+
+  try {
+    const response = await fetch(
+      'https://xaus.com/api/v1/spot?compact=1',
+      {cache:'no-store'}
+    );
+
+    if(!response.ok) throw Error('Market feed unavailable');
+
+    const data = await response.json();
+    const price = Number(data.xau?.price);
+    const state = data.data_state?.status;
+    const timestamp = data.data_state?.as_of || data.updated_at;
+
+    if(!Number.isFinite(price) || price <= 0)
+      throw Error('Invalid market price');
+
+    priceEl.textContent = '$' + price.toFixed(2);
+
+    const time = timestamp
+      ? new Date(timestamp).toLocaleTimeString()
+      : 'Time unavailable';
+
+    statusEl.textContent =
+      (state === 'fresh' ? '● Fresh feed' :
+       state === 'stale' ? '● Last known price (stale)' :
+       '● Feed status unknown') + ' · ' + time;
+
+    statusEl.style.color =
+      state === 'fresh' ? 'var(--green)' : 'var(--gold)';
+
+  } catch(error) {
+    priceEl.textContent = 'Unavailable';
+    statusEl.textContent = error.message;
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
+updateLiveGold();
+setInterval(updateLiveGold, 60000);
+  
 function parseCSV(text){
  const lines=text.trim().split(/\r?\n/).filter(Boolean);if(lines.length<3)throw Error('CSV needs a header and at least 2 data rows.');
  const delim=lines[0].includes(';')?';':',';const headers=lines[0].split(delim).map(s=>s.trim().toLowerCase());
